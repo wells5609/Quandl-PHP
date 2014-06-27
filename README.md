@@ -8,7 +8,7 @@ Very much an alpha version
 ###Basic Usage
 ```php
 // Include the main Quandl class file
-require /path/to/Quandl.php;
+require '/path/to/Quandl.php';
 
 // Register an autoloader for other library classes
 Quandl::registerAutoloader();
