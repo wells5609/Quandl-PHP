@@ -22,7 +22,7 @@ $aapl = Quandl::request('WIKI/AAPL');
 // Find the close on August 5, 2013
 // use any PHP-recognized date format
 if ($aug_5_13 = $aapl->getDataFrom('Aug 5, 2013')) {
-  echo '<p>On August 5, 2013, the price of AAPL at close was ' . $aug_5_13['Close'] . '</p>';
+  echo 'On August 5, 2013, the price of AAPL at close was ' . $aug_5_13['Close'] . ' ';
 }
 
 // Get the Quandl.com page link
@@ -32,8 +32,7 @@ echo '<a href="'.$link.'">View AAPL on Quandl.com</a>';
 ```
 This should output something like:
 
-On august 5, 2013, the price of AAPL at close was 469.45.
-[View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
+On August 5, 2013, the price of AAPL at close was 469.45. [View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
 
 
 Or, to get all the returned data:
