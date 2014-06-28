@@ -3,7 +3,7 @@ Quandl-PHP
 
 PHP library for the Quandl API. 
 
-Very much an alpha version
+Very much in alpha
 
 ###Basic Usage
 ```php
@@ -18,15 +18,18 @@ Quandl::setAuthToken('ABCDEFGH12345678');
 
 // Get daily EOD quotes for Apple
 $aapl = Quandl::request('WIKI/AAPL');
+// or new \Quandl\Request('WIKI/AAPL');
+
+$aapl->send();
 
 // Find the close on August 5, 2013
 // use any PHP-recognized date format
-if ($aug_5_13 = $aapl->getDataFrom('Aug 5, 2013')) {
-  echo 'On August 5, 2013, the price of AAPL at close was ' . $aug_5_13['Close'] . ' ';
+if ($aug_5 = $aapl->response->getDataFrom('Aug 5, 2013')) {
+  echo 'On August 5, 2013, the price of AAPL at close was ' . $aug_5['Close'] . ' ';
 }
 
 // Get the Quandl.com page link
-$link = $aapl->get('display_url');
+$link = $aapl->response->get('display_url');
 
 echo '<a href="'.$link.'">View AAPL on Quandl.com</a>';
 ```
@@ -35,7 +38,7 @@ This should output something like:
 On August 5, 2013, the price of AAPL at close was 469.45. [View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
 
 
-Or, to get all the returned data:
+Get all the returned data:
 ```php
 $data = $aapl->get('data');
 ```
