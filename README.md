@@ -1,9 +1,12 @@
 Quandl-PHP
 ==========
 
-PHP library for the Quandl API. 
+PHP library for the Quandl API. Very much in alpha
 
-Very much in alpha
+###Requirements
+ * PHP 5.3+
+ * `allow_url_fopen = 1` php.ini directive
+
 
 ###Basic Usage
 ```php
@@ -13,33 +16,39 @@ require '/path/to/Quandl.php';
 // Register an autoloader for other library classes
 Quandl::registerAutoloader();
 
-// Set your API key (the one below is fake)
+// Set your API key (optional but recommended)
 Quandl::setAuthToken('ABCDEFGH12345678');
 
-// Get EOD quotes for Apple
+// Getting EOD quotes for Apple
 $aapl = Quandl::request('WIKI/AAPL');
 // or new \Quandl\Request('WIKI/AAPL');
 
-// Get one year of data
-$aapl->startDate(date('Y-m-d', strtotime('1 year ago')));
+// Get all observations from 2011
+$aapl->startDate('2011-01-01');
+$aapl->endDate('2011-12-31');
 
+// Send the request
 $aapl->send();
 
-// Find the close on August 5, 2013
-// use any PHP-recognized date format
-if ($aug_5 = $aapl->response->getDataFrom('Aug 5, 2013')) {
-  echo 'On August 5, 2013, the price of AAPL at close was ' . $aug_5['Close'] . ' ';
+if ($aapl->isError()) {
+  echo "Something went wrong.";
+  exit(-1);
 }
 
-// Get the Quandl.com page link
-$link = $aapl->response->get('display_url');
+// Find the closing price on August 5, 2011
+if ($aug5 = $aapl->response->getDataFrom('2011-08-05')) {
+  echo "On August 5th 2011, the closing price of AAPL was ".$aug5['Close'].". ";
+}
 
-echo '<a href="'.$link.'">View AAPL on Quandl.com</a>';
+// Show the Quandl.com page link
+echo '<a href="'.$aapl->response->get('display_url').'">View AAPL on Quandl.com</a>';
 ```
-This should output something like:
+This should output:
 
-On August 5, 2013, the price of AAPL at close was 469.45. [View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
+On August 5, 2011, the closing price of AAPL was 373.62. [View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
 
+
+###Response
 
 Get all the returned data:
 ```php
