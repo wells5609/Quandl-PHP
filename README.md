@@ -5,7 +5,7 @@ PHP library for the Quandl API. Very much in alpha
 
 ###Requirements
  * PHP 5.3+
- * `allow_url_fopen = 1` php.ini directive
+ * `allow_url_fopen` ini directive set to true
 
 
 ###Basic Usage
@@ -46,9 +46,6 @@ echo '<a href="'.$aapl->response->get('display_url').'">View AAPL on Quandl.com<
 This should output:
 
 On August 5, 2011, the closing price of AAPL was 373.62. [View AAPL on Quandl.com](http://www.quandl.com/WIKI/AAPL)
-
-
-###Response
 
 Get all the returned data:
 ```php
