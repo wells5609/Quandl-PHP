@@ -16,9 +16,12 @@ Quandl::registerAutoloader();
 // Set your API key (the one below is fake)
 Quandl::setAuthToken('ABCDEFGH12345678');
 
-// Get daily EOD quotes for Apple
+// Get EOD quotes for Apple
 $aapl = Quandl::request('WIKI/AAPL');
 // or new \Quandl\Request('WIKI/AAPL');
+
+// Get a month of data
+$aapl->startDate(date('Y-m-d', strtotime('4 weeks ago')));
 
 $aapl->send();
 
