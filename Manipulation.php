@@ -1,6 +1,10 @@
 <?php
 
-class Quandl_Manipulation {
+namespace Quandl;
+
+use InvalidArgumentException;
+
+class Manipulation {
 	
 	const TYPE_BOOL = 1;
 	const TYPE_NUM = 2;
