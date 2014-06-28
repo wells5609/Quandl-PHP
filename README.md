@@ -20,8 +20,8 @@ Quandl::setAuthToken('ABCDEFGH12345678');
 $aapl = Quandl::request('WIKI/AAPL');
 // or new \Quandl\Request('WIKI/AAPL');
 
-// Get one month of data
-$aapl->startDate(date('Y-m-d', strtotime('4 weeks ago')));
+// Get one year of data
+$aapl->startDate(date('Y-m-d', strtotime('1 year ago')));
 
 $aapl->send();
 
