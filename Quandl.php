@@ -1,5 +1,7 @@
 <?php
 
+namespace Quandl;
+
 class Quandl {
 	
 	/**
@@ -43,7 +45,7 @@ class Quandl {
 			throw new InvalidArgumentException("Directory does not exist.");
 		}
 		
-		static::$cache = new \Quandl\Cache($realpath);
+		static::$cache = new Cache($realpath);
 	}
 	
 	/**
@@ -56,7 +58,7 @@ class Quandl {
 	 */
 	public static function url($quandl_code, array $manipulations = null, $format = null) {
 		
-		$url = new \Quandl\Url($quandl_code);
+		$url = new Url($quandl_code);
 		
 		if (isset($manipulations)) {
 			$url->addManipulations($manipulations);
@@ -79,7 +81,7 @@ class Quandl {
 	 */
 	public static function request($quandl_code, array $manipulations = null, $format = null) {
 		
-		$request = new \Quandl\Request($quandl_code);
+		$request = new Request($quandl_code);
 		
 		if (isset($manipulations)) {
 			$request->addManipulations($manipulations);
@@ -100,10 +102,10 @@ class Quandl {
 	 * @param int $ttl [Optional]
 	 * @return Quandl\Response|boolean
 	 */
-	public static function getCached($quandl_code, $manipulations = null, $ttl = null) {
+	public static function getCachedResponse($quandl_code, $manipulations = null, $ttl = null) {
 			
 		if (isset(static::$cache)) {
-			static::$cache->get($quandl_code, $manipulations, $ttl);
+			return static::$cache->get($quandl_code, $manipulations, $ttl);
 		}
 		
 		return false;
@@ -117,7 +119,7 @@ class Quandl {
 	 * @param array $manipulations [Optional]
 	 * @return boolean
 	 */
-	public static function cache($quandl_code, $response, $manipulations = null) {
+	public static function cacheResponse($quandl_code, $response, $manipulations = null) {
 			
 		if (isset(static::$cache)) {
 			return static::$cache->put($quandl_code, $response, $manipulations);
@@ -127,7 +129,7 @@ class Quandl {
 	}
 	
 	/**
-	 * Registers an autoloader for the Quandl_* classes.
+	 * Registers an autoloader for the Quandl namespace.
 	 */
 	public static function registerAutoloader() {
 		return spl_autoload_register(array(__CLASS__, 'autoload'));

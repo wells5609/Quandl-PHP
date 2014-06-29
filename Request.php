@@ -2,17 +2,18 @@
 
 namespace Quandl;
 
-use Quandl;
-
+/**
+ * Represents a single Quandl API request.
+ */
 class Request {
 	
 	/**
-	 * @var Quandl_Url
+	 * @var Quandl\Url
 	 */
 	protected $url;
 	
 	/**
-	 * @var Quandl_Response
+	 * @var Quandl\Response
 	 */
 	protected $response;
 	
@@ -26,34 +27,6 @@ class Request {
 	}
 	
 	/**
-	 * Returns the Quandl code.
-	 * 
-	 * @return string
-	 */
-	public function getQuandlCode() {
-		return $this->url->getQuandlCode();
-	}
-	
-	/**
-	 * Try to forward unknown methods to Quandl_Url.
-	 * 
-	 * @return mixed
-	 * 
-	 * @throws BadMethodCallException
-	 */
-	public function __call($func, $args) {
-			
-		if (is_callable(array($this->url, $func))) {
-				
-			$results = call_user_func_array(array($this->url, $func), $args);
-			
-			return (null === $results) ? $this : $results;
-		}
-		
-		throw new \BadMethodCallException("Unknown method '$func'");
-	}
-	
-	/**
 	 * Magic getter
 	 * @param $var Property name
 	 * @return mixed
@@ -63,38 +36,22 @@ class Request {
 	}
 	
 	/**
-	 * Adds an array of manipulations to the request URL.
+	 * Returns the Quandl code.
 	 * 
-	 * @param array $manipulations
-	 * @return $this
+	 * @return string
 	 */
-	#public function addManipulations(array $manipulations) {
-	#	$this->url->addManipulations($manipulations);
-	#	return $this;
-	#}
+	public function getQuandlCode() {
+		return $this->url->getQuandlCode();
+	}
 	
 	/**
-	 * Adds a manipulation to the request URL.
+	 * Returns the request's Quandl\Response.
 	 * 
-	 * @param string $name Manipulation name (e.g. "trim_start")
-	 * @param mixed $value Manipulation value (e.g. "2011-01-01")
-	 * @return $this
+	 * @return Quandl_Response
 	 */
-	#public function manipulate($name, $value) {
-	#	$this->url->manipulate($name, $value);
-	#	return $this;
-	#}
-	
-	/**
-	 * Sets the response format.
-	 * 
-	 * @param string $format
-	 * @return $this
-	 */
-	#public function setFormat($format) {
-	#	$this->url->setFormat($format);
-	#	return $this;
-	#}
+	public function getResponse() {
+		return isset($this->response) ? $this->response : null;
+	}
 	
 	/**
 	 * Sends the request (if no cached response exists).
@@ -107,15 +64,9 @@ class Request {
 		$qcode = $this->url->getQuandlCode();
 		$manips = $this->url->getManipulations();
 		
-		if (! $response = Quandl::getCached($qcode, $manips, $cache_ttl)) {
+		if (! $response = Quandl::getCachedResponse($qcode, $manips, $cache_ttl)) {
 			
-			if (! $fh = fopen($this->url, 'rb')) {
-				return null;
-			}
-			
-			$response = stream_get_contents($fh);
-			
-			fclose($fh);
+			$response = file_get_contents($this->url);
 			
 			if (empty($response)) {
 				return null;
@@ -139,25 +90,17 @@ class Request {
 					break;
 			}
 			
+			// @TODO dirty hack
 			if ('WIKI' === $this->url->getSourceCode() && $response instanceof Response) {
 				$response = $response->upgradeObject('Quandl\\Response\\Stock');
 			}
 			
-			Quandl::cache($qcode, $response, $manips);
+			Quandl::cacheResponse($qcode, $response, $manips);
 		}
 		
 		$this->response = $response;
 		
 		return $this;
-	}
-	
-	/**
-	 * Returns the request's Quandl_Response.
-	 * 
-	 * @return Quandl_Response
-	 */
-	public function getResponse() {
-		return isset($this->response) ? $this->response : null;
 	}
 	
 	/**
@@ -194,16 +137,6 @@ class Request {
 			$order = 'desc';
 		}
 		$this->url->manipulate('sort_order', $order);
-		return $this;
-	}
-	
-	/**
-	 * Exclude data headers (column names) from the response.
-	 * 
-	 * @return $this
-	 */
-	public function excludeHeaders() {
-		$this->url->manipulate('exclude_headers', 'true');
 		return $this;
 	}
 	
@@ -254,6 +187,37 @@ class Request {
 	public function transform($arg) {
 		$this->url->manipulate('transformation', $arg);
 		return $this;
+	}
+	
+	/**
+	 * Exclude data headers (column names) from the response.
+	 * 
+	 * Only for CSV calls.
+	 * 
+	 * @return $this
+	 */
+	public function excludeHeaders() {
+		$this->url->manipulate('exclude_headers', 'true');
+		return $this;
+	}
+	
+	/**
+	 * Try to forward unknown methods to Quandl\Url.
+	 * 
+	 * @return mixed
+	 * 
+	 * @throws BadMethodCallException
+	 */
+	public function __call($func, $args) {
+			
+		if (is_callable(array($this->url, $func))) {
+				
+			$results = call_user_func_array(array($this->url, $func), $args);
+			
+			return (null === $results) ? $this : $results;
+		}
+		
+		throw new \BadMethodCallException("Unknown method '$func'");
 	}
 	
 }

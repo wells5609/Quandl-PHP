@@ -26,6 +26,14 @@ class Manipulation {
 		'transformation'	=> self::TYPE_ENUM,
 	);
 	
+	/**
+	 * Build and validate the manipulation with the given name and value.
+	 * 
+	 * @param string $name
+	 * @param mixed $value
+	 * 
+	 * @throws InvalidArgumentException if manipulation is unknown or value is invalid. 
+	 */
 	public function __construct($name, $value) {
 		
 		$name = strtolower($name);
@@ -50,12 +58,23 @@ class Manipulation {
 		$this->value = $value;
 	}
 	
+	/**
+	 * Returns the manipulation as a string suitable for a URL.
+	 * 
+	 * @return string
+	 */
 	public function __toString() {
 		return $this->name.'='.$this->value;
 	}
 	
-	public static function getEnumValues($param) {
-		switch($param) {
+	/**
+	 * Returns the allowed enum values for a given manipulation.
+	 * 
+	 * @param string $name
+	 * @return array|null
+	 */
+	public static function getEnumValues($name) {
+		switch($name) {
 			case 'sort_order':
 				return array('asc', 'desc');
 			case 'collapse':
@@ -67,14 +86,33 @@ class Manipulation {
 		}
 	}
 	
+	/**
+	 * Checks whether a given manipulation is valid.
+	 * 
+	 * @param string $name
+	 * @return boolean
+	 */
 	public static function exists($name) {
 		return isset(self::$manipulations[$name]);
 	}
 	
+	/**
+	 * Returns whether the given manipulation expects a date value.
+	 * 
+	 * @param string $name
+	 * @return boolean
+	 */
 	public static function isDate($name) {
 		return isset(self::$manipulations[$name]) && self::TYPE_DATE === self::$manipulations[$name];
 	}
 	
+	/**
+	 * Checks whether the given value is valid for the given manipulation.
+	 * 
+	 * @param string $name
+	 * @param string $value
+	 * @return boolean
+	 */
 	public static function validate($name, $value) {
 		
 		switch(self::$manipulations[$name]) {

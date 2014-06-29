@@ -56,6 +56,10 @@ class Cache {
 		return $result;
 	}
 	
+	/**
+	 * Returns filename for a given Quandl code and manipulation(s).
+	 * If there are manipulations, appends MD5 digest of serialized value to filename.
+	 */
 	protected function filename($quandl_code, $manipulations = null) {
 		
 		$file = $this->directory.$quandl_code.'/_';

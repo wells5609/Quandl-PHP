@@ -5,6 +5,9 @@ namespace Quandl;
 use InvalidArgumentException;
 use RuntimeException;
 
+/**
+ * Represents a URL for a Quandl API request.
+ */
 class Url {
 	
 	/**
@@ -28,7 +31,7 @@ class Url {
 	protected $table_code;
 	
 	/**
-	 * Array of Quandl_Manipulation objects.
+	 * Array of Quandl\Manipulation objects.
 	 * 
 	 * @var array
 	 */
@@ -218,7 +221,7 @@ class Url {
 			}
 		}
 		
-		if ($token = \Quandl::getAuthToken()) {
+		if ($token = Quandl::getAuthToken()) {
 			$url .= 'auth_token='.$token;
 		}
 		

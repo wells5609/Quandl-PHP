@@ -24,10 +24,22 @@ class Response implements \Serializable {
 	protected $display_url;
 	protected $data;
 	
+	/**
+	 * Creates a new Response from a JSON response string.
+	 * 
+	 * @param string $json JSON string returned from Quandl API.
+	 * @return \Quandl\Response
+	 */
 	public static function createFromJson($json) {
 		return new static(json_decode($json));
 	}
 	
+	/**
+	 * Creates a new Response from a CSV response string.
+	 * 
+	 * @param string $csv CSV string returned from Quandl API.
+	 * @return \Quandl\Response
+	 */
 	public static function createFromCsv($csv) {
 		
 		$rows = str_getcsv($csv, "\n");
@@ -45,6 +57,12 @@ class Response implements \Serializable {
 		return new static($data);
 	}
 	
+	/**
+	 * Creates a new Response from an XML response string.
+	 * 
+	 * @param string $xml XML string returned from Quandl API.
+	 * @return \Quandl\Response
+	 */
 	public static function createFromXml($xml) {
 		
 		$parsed = json_decode(json_encode(simplexml_load_string($xml)), true);;
@@ -78,36 +96,90 @@ class Response implements \Serializable {
 		return new static($data);
 	}
 	
+	/**
+	 * Returns an object property, if set.
+	 * 
+	 * @param string $var
+	 * @return mixed
+	 */
 	public function get($var) {
 		return isset($this->$var) ? $this->$var : null;
 	}
 	
+	/**
+	 * Returns the index for a given column name.
+	 * 
+	 * The 'Date' column is always 0. Data columns begin at 1.
+	 * 
+	 * @param string $name
+	 * @return int
+	 */
 	public function getColumnIndex($name) {
 		return array_search($name, $this->column_names, true);
 	}
 	
+	/**
+	 * Returns the date on which the dataset was last updated.
+	 * 
+	 * Will not work for CSV requests.
+	 * 
+	 * @return string
+	 */
 	public function getLastUpdate() {
-		return $this->updated_at;
+		return isset($this->updated_at) ? $this->updated_at : null;
 	}
 	
+	/**
+	 * Returns the number of observations.
+	 * 
+	 * @return int
+	 */
 	public function getObservationCount() {
 		return count($this->data);
 	}
 	
+	/**
+	 * Returns the first observation from the dataset.
+	 * 
+	 * Does NOT account for sort order - i.e. in ASC order,
+	 * returns the oldest observation; in DESC order, returns the
+	 * newest observation.
+	 * 
+	 * @return mixed
+	 */
 	public function getFirstObservation() {
 		$data = $this->data;
 		return array_pop($data);
 	}
 	
+	/**
+	 * Returns the last observation from the dataset.
+	 * 
+	 * Does NOT account for sort order - i.e. in ASC order,
+	 * returns the newest observation; in DESC order, returns the
+	 * oldest observation.
+	 * 
+	 * @return mixed
+	 */
 	public function getLastObservation() {
 		$data = $this->data;
 		return array_shift($data);
 	}
 	
+	/**
+	 * Returns the entire dataset.
+	 * 
+	 * @return array
+	 */
 	public function getData() {
 		return $this->data;
 	}
 	
+	/**
+	 * Checks whether any errors were returned.
+	 * 
+	 * @return boolean
+	 */
 	public function isError() {
 		if (! empty($this->errors) && $vars = get_object_vars($this->errors)) {
 			return ! empty($vars);	
@@ -142,6 +214,16 @@ class Response implements \Serializable {
 		return null;
 	}
 	
+	/**
+	 * Returns the observations between two dates.
+	 * 
+	 * If no ending date is given, returns the observations
+	 * up to and including the most recent.
+	 * 
+	 * @param string $start_date A PHP-recognized date.
+	 * @param string $end_date [Optional]
+	 * @return array
+	 */
 	public function getDataBetween($start_date, $end_date = null) {
 		
 		if (! $start = strtotime($start_date)) {
@@ -168,10 +250,23 @@ class Response implements \Serializable {
 		return $data;
 	}
 	
+	/**
+	 * Constructs the object using response data.
+	 * 
+	 * @param mixed $response
+	 */
 	public function __construct($response) {
 		$this->import($response);
 	}
 	
+	/**
+	 * Imports data into the object as properties.
+	 * 
+	 * Additionally attempts to add column names to each 
+	 * observation as item keys.
+	 * 
+	 * @param mixed $data
+	 */
 	public function import($data) {
 		
 		foreach((array)$data as $key => $value) {
@@ -187,6 +282,13 @@ class Response implements \Serializable {
 		}
 	}
 	
+	/**
+	 * "Upgrades" the object to a new class.
+	 * 
+	 * @param string $class Classname of object to upgrade to.
+	 * @return Object New instance of given class, if it exists.
+	 * @throws InvalidArgumentException if class does not exist.
+	 */
 	public function upgradeObject($class) {
 		
 		if (! class_exists($class, true)) {
