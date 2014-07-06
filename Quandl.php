@@ -42,7 +42,7 @@ class Quandl {
 	public static function setCacheDirectory($dir) {
 			
 		if (! $realpath = realpath($dir)) {
-			throw new InvalidArgumentException("Directory does not exist.");
+			throw new InvalidArgumentException("Directory does not exist: $dir");
 		}
 		
 		static::$cache = new Cache($realpath);
@@ -117,12 +117,13 @@ class Quandl {
 	 * @param string $quandl_code
 	 * @param mixed $response
 	 * @param array $manipulations [Optional]
+	 * @param int $ttl [Optional]
 	 * @return boolean
 	 */
-	public static function cacheResponse($quandl_code, $response, $manipulations = null) {
+	public static function cacheResponse($quandl_code, $response, $manipulations = null, $ttl = null) {
 			
 		if (isset(static::$cache)) {
-			return static::$cache->put($quandl_code, $response, $manipulations);
+			return static::$cache->put($quandl_code, $response, $manipulations, $ttl);
 		}
 		
 		return false;

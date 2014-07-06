@@ -51,7 +51,9 @@ class Stock extends \Quandl\Response {
 			);
 		}
 		
-		return $this->returnAllData() ? $data : $smas;
+		$this->mergeData($data);
+		
+		return $this->returnAllData() ? $this->getData() : $smas;
 	}
 	
 }

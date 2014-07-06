@@ -65,7 +65,7 @@ class Response implements \Serializable {
 	 */
 	public static function createFromXml($xml) {
 		
-		$parsed = json_decode(json_encode(simplexml_load_string($xml)), true);;
+		$parsed = json_decode(json_encode(simplexml_load_string($xml)), true);
 		$data = array();
 		
 		foreach($parsed as $key => $value) {
@@ -175,6 +175,11 @@ class Response implements \Serializable {
 		return $this->data;
 	}
 	
+	public function mergeData(array $newdata) {
+		$this->data = array_merge_recursive($this->data, $newdata);
+		return $this;
+	}
+	
 	/**
 	 * Checks whether any errors were returned.
 	 * 
@@ -238,12 +243,12 @@ class Response implements \Serializable {
 		
 		$data = array();
 		
-		foreach($this->data as $observation) {
+		foreach($this->data as $key => $observation) {
 			
 			$obs = strtotime($observation['Date']);
 			
 			if ($start <= $obs && $end >= $obs) {
-				$data[] = $observation;
+				$data[$key] = $observation;
 			}
 		}
 		
@@ -282,6 +287,10 @@ class Response implements \Serializable {
 		}
 	}
 	
+	public function export() {
+		return get_object_vars($this);
+	}
+	
 	/**
 	 * "Upgrades" the object to a new class.
 	 * 
@@ -295,11 +304,11 @@ class Response implements \Serializable {
 			throw new InvalidArgumentException("Unknown class '$class'.");
 		}
 		
-		return new $class(get_object_vars($this));
+		return new $class($this->export());
 	}
 	
 	public function serialize() {
-		return serialize(get_object_vars($this));
+		return serialize($this->export());
 	}
 	
 	public function unserialize($serial) {

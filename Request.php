@@ -95,7 +95,7 @@ class Request {
 				$response = $response->upgradeObject('Quandl\\Response\\Stock');
 			}
 			
-			Quandl::cacheResponse($qcode, $response, $manips);
+			Quandl::cacheResponse($qcode, $response, $manips, $cache_ttl);
 		}
 		
 		$this->response = $response;
