@@ -4,101 +4,132 @@ namespace Quandl;
 
 /**
  * Represents a single Quandl API request.
+ * 
+ * Encapsulates operations on \Quandl\Url and produces a \Quandl\Response.
  */
 class Request {
 	
 	/**
-	 * @var Quandl\Url
+	 * @var \Quandl\Url
 	 */
 	protected $url;
 	
 	/**
-	 * @var Quandl\Response
+	 * @var \Quandl\Response
 	 */
 	protected $response;
 	
 	/**
 	 * Creates a URL for the given Quandl code.
 	 * 
-	 * @param string $quandl_code
+	 * @param string $quandlCode Full Quandl code string.
 	 */
-	public function __construct($quandl_code) {
-		$this->url = new Url($quandl_code);
+	public function __construct($quandlCode) {
+		$this->url = new Url($quandlCode);
 	}
 	
 	/**
-	 * Magic getter
-	 * @param $var Property name
-	 * @return mixed
-	 */
-	public function __get($var) {
-		return isset($this->$var) ? $this->$var : null;
-	}
-	
-	/**
-	 * Returns the Quandl code.
+	 * Checks whether a cached response is available.
 	 * 
-	 * @return string
+	 * @return boolean
 	 */
-	public function getQuandlCode() {
-		return $this->url->getQuandlCode();
-	}
-	
-	/**
-	 * Returns the request's Quandl\Response.
-	 * 
-	 * @return Quandl_Response
-	 */
-	public function getResponse() {
-		return isset($this->response) ? $this->response : null;
-	}
-	
-	/**
-	 * Sends the request (if no cached response exists).
-	 * 
-	 * @param int|null $cache_ttl Time in seconds to cache the response.
-	 * @return $this
-	 */
-	public function send($cache_ttl = null) {
+	public function isCached() {
 		
-		$qcode = $this->url->getQuandlCode();
-		$manips = $this->url->getManipulations();
+		if (! Quandl::hasCache()) {
+			return false;
+		}
 		
-		if (! $response = Quandl::getCachedResponse($qcode, $manips, $cache_ttl)) {
-			
-			$response = file_get_contents($this->url);
-			
-			if (empty($response)) {
-				return null;
-			}
-			
+		$cache = Quandl::getCache();
+		
+		return (bool) $cache->get($this->url->getQuandlCode(), $this->url->getManipulations());
+	}
+	
+	/**
+	 * Returns the cached response, if it exists.
+	 * 
+	 * @return \Quandl\Response
+	 */
+	public function getCached() {
+		
+		if (! Quandl::hasCache()) {
+			return null;
+		}
+		
+		$cache = Quandl::getCache();
+		
+		return $cache->get($this->url->getQuandlCode(), $this->url->getManipulations());
+	}
+	
+	/**
+	 * Sends the request.
+	 * 
+	 * @return \Quandl\Request
+	 */
+	public function send(&$success = null) {
+		
+		if (! Quandl::hasAdapter()) {
+			$success = false;
+			throw new \RuntimeException("Cannot send request: no request adapter set.");
+		}
+		
+		$response = Quandl::getAdapter()->request($this->url);
+		
+		if (empty($response)) {
+			$success = false;
+		
+		} else {	
+		
 			switch($this->url->getFormat()) {
 				
 				case '.json':
 					$response = Response::createFromJson($response);
 					break;
 				
-				case '.csv':
-					$response = Response::createFromCsv($response);
-					break;
-				
 				case '.xml':
 					$response = Response::createFromXml($response);
 					break;
 				
-				default:
+				case '.csv':
+					$excl_headers = (bool) $this->url->getManipulation('exclude_headers');
+					$response = Response::createFromCsv($response, $excl_headers);
 					break;
 			}
 			
-			// @TODO dirty hack
-			if ('WIKI' === $this->url->getSourceCode() && $response instanceof Response) {
-				$response = $response->upgradeObject('Quandl\\Response\\Stock');
-			}
-			
-			Quandl::cacheResponse($qcode, $response, $manips, $cache_ttl);
+			$this->response = $response;
+			$success = true;
 		}
 		
-		$this->response = $response;
+		return $this;
+	}
+	
+	/**
+	 * Returns the request's Quandl\Response.
+	 * 
+	 * @return \Quandl\Response
+	 */
+	public function getResponse() {
+		return isset($this->response) ? $this->response : null;
+	}
+	
+	/** ===========================================================
+	 * 		Manipulation Methods
+	 * ==========================================================*/
+	
+	/**
+	 * Set the sort order of the results.
+	 * 
+	 * @param string $order One of "asc" or "desc", or their corresponding PHP constants.
+	 * @return \Quandl\Request
+	 */
+	public function sortOrder($order) {
+		
+		if (SORT_ASC === $order) {
+			$order = 'asc';
+		} else if (SORT_DESC === $order) {
+			$order = 'desc';
+		}
+		
+		$this->url->manipulate('sort_order', $order);
 		
 		return $this;
 	}
@@ -107,10 +138,12 @@ class Request {
 	 * Set the start date for the returned time series.
 	 * 
 	 * @param string $Ymd Date in format "2001-12-31"
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function startDate($Ymd) {
+		
 		$this->url->manipulate('trim_start', $Ymd);
+		
 		return $this;
 	}
 	
@@ -118,25 +151,12 @@ class Request {
 	 * Set the ending date for the returned time series.
 	 * 
 	 * @param string $Ymd Date in format "2011-12-31"
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function endDate($Ymd) {
+		
 		$this->url->manipulate('trim_end', $Ymd);
-		return $this;
-	}
-	
-	/**
-	 * Set the sort order of the results.
-	 * 
-	 * @param string $order One of "asc" or "desc", or their corresponding PHP constants.
-	 */
-	public function sortOrder($order) {
-		if (SORT_ASC === $order) {
-			$order = 'asc';
-		} else if (SORT_DESC === $order) {
-			$order = 'desc';
-		}
-		$this->url->manipulate('sort_order', $order);
+		
 		return $this;
 	}
 	
@@ -144,10 +164,12 @@ class Request {
 	 * Set the number of rows to return.
 	 * 
 	 * @param int $num
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function rows($num) {
+		
 		$this->url->manipulate('rows', $num);
+		
 		return $this;
 	}
 	
@@ -155,10 +177,12 @@ class Request {
 	 * Set the column index to return.
 	 * 
 	 * @param int $index
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function column($index) {
+		
 		$this->url->manipulate('column', $index);
+		
 		return $this;
 	}
 	
@@ -169,23 +193,25 @@ class Request {
 	 * Default is 'daily' (I believe).
 	 * 
 	 * @param string $freq
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function frequency($freq) {
+		
 		$this->url->manipulate('collapse', $freq);
+		
 		return $this;
 	}
 	
 	/**
 	 * Set a data transformation.
 	 * 
-	 * One of: 'diff', 'rdiff', 'cumul', or 'normalize'.
-	 * 
-	 * @param string $arg
-	 * @return $this
+	 * @param string $arg One of: 'diff', 'rdiff', 'cumul', or 'normalize'.
+	 * @return \Quandl\Request
 	 */
 	public function transform($arg) {
+		
 		$this->url->manipulate('transformation', $arg);
+		
 		return $this;
 	}
 	
@@ -194,27 +220,26 @@ class Request {
 	 * 
 	 * Only for CSV calls.
 	 * 
-	 * @return $this
+	 * @return \Quandl\Request
 	 */
 	public function excludeHeaders() {
+		
 		$this->url->manipulate('exclude_headers', 'true');
+		
 		return $this;
 	}
 	
 	/**
-	 * Try to forward unknown methods to Quandl\Url.
+	 * Try to forward unknown methods to \Quandl\Url.
 	 * 
 	 * @return mixed
 	 * 
-	 * @throws BadMethodCallException
+	 * @throws \BadMethodCallException
 	 */
-	public function __call($func, $args) {
+	public function __call($func, array $args) {
 			
 		if (is_callable(array($this->url, $func))) {
-				
-			$results = call_user_func_array(array($this->url, $func), $args);
-			
-			return (null === $results) ? $this : $results;
+			return call_user_func_array(array($this->url, $func), $args);
 		}
 		
 		throw new \BadMethodCallException("Unknown method '$func'");

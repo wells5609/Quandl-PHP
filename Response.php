@@ -2,26 +2,27 @@
 
 namespace Quandl;
 
-use InvalidArgumentException;
-
-class Response implements \Serializable {
+/**
+ * Represents a response from the Quandl API.
+ */
+class Response implements \Serializable, \Countable, \IteratorAggregate {
 	
-	protected $errors;
 	protected $id;
+	protected $errors;
 	protected $source_name;
 	protected $source_code;
 	protected $code;
 	protected $name;
+	protected $private;
+	protected $type;
 	protected $urlize_name;
+	protected $display_url;
 	protected $description;
 	protected $updated_at;
 	protected $frequency;
 	protected $from_date;
 	protected $to_date;
 	protected $column_names;
-	protected $private;
-	protected $type;
-	protected $display_url;
 	protected $data;
 	
 	/**
@@ -35,29 +36,6 @@ class Response implements \Serializable {
 	}
 	
 	/**
-	 * Creates a new Response from a CSV response string.
-	 * 
-	 * @param string $csv CSV string returned from Quandl API.
-	 * @return \Quandl\Response
-	 */
-	public static function createFromCsv($csv) {
-		
-		$rows = str_getcsv($csv, "\n");
-		$headers = str_getcsv(array_shift($rows), ',');
-		
-		$data = array(
-			'column_names' => $headers,
-			'data' => array()
-		);
-		
-		foreach($rows as $row) {
-			$data['data'][] = str_getcsv($row, ',');
-		}
-		
-		return new static($data);
-	}
-	
-	/**
 	 * Creates a new Response from an XML response string.
 	 * 
 	 * @param string $xml XML string returned from Quandl API.
@@ -65,27 +43,33 @@ class Response implements \Serializable {
 	 */
 	public static function createFromXml($xml) {
 		
+		// xml to array via json see-saw
 		$parsed = json_decode(json_encode(simplexml_load_string($xml)), true);
 		$data = array();
 		
 		foreach($parsed as $key => $value) {
-			
+			// make keys match class properties
 			$key = str_replace('-', '_', $key);
 			
+			// normalize various mis-matchings
 			switch($key) {
+					
 				case 'column_names':
 					$value = $value['column-name'];
 					break;
+				
 				case 'data':
 					foreach($value['datum'] as &$obs) {
 						$obs = $obs['datum'];
 					}
 					$value = $value['datum'];
 					break;
+				
 				case 'type':
 					unset($value['@attributes']);
 					$value = empty($value) ? null : $value;
 					break;
+				
 				default:
 					break;
 			}
@@ -94,6 +78,42 @@ class Response implements \Serializable {
 		}
 		
 		return new static($data);
+	}
+	
+	/**
+	 * Creates a new Response from a CSV response string.
+	 * 
+	 * Note CSV responses only provide the data and column names (if not excluded).
+	 * 
+	 * @param string $csv CSV string returned from Quandl API.
+	 * @return \Quandl\Response
+	 */
+	public static function createFromCsv($csv, $exclude_headers = false) {
+		
+		// Parse rows in array
+		$rows = str_getcsv($csv, "\n");
+		
+		$data = array('data' => array());
+		
+		if (! $exclude_headers) {
+			// Parse 1st row as headers
+			$data['column_names'] = str_getcsv(array_shift($rows), ',');
+		}
+
+		foreach($rows as $row) {
+			$data['data'][] = str_getcsv($row, ',');
+		}
+		
+		return new static($data);
+	}
+	
+	/**
+	 * Constructs the object using response data.
+	 * 
+	 * @param mixed $response
+	 */
+	public function __construct($response) {
+		$this->import($response);
 	}
 	
 	/**
@@ -107,6 +127,62 @@ class Response implements \Serializable {
 	}
 	
 	/**
+	 * Returns the entire dataset.
+	 * 
+	 * @return array
+	 */
+	public function getData() {
+		return $this->data;
+	}
+	
+	/**
+	 * Returns the number of observations in the response data.
+	 * 
+	 * @return int.
+	 */
+	public function count() {
+		return count($this->data);
+	}
+	
+	/**
+	 * Returns an \ArrayIterator for the response data.
+	 * 
+	 * @return \ArrayIterator
+	 */
+	public function getIterator() {
+		return new \ArrayIterator($this->data);
+	}
+	
+	/**
+	 * Merges an array of data into existing data recursively.
+	 * 
+	 * @param array $newdata
+	 * @return $this
+	 */
+	public function mergeData(array $data) {
+		
+		$this->data = array_merge_recursive($this->data, $data);
+		
+		return $this;
+	}
+	
+	/**
+	 * Checks whether any errors were returned.
+	 * 
+	 * @return boolean
+	 */
+	public function isError() {
+		
+		if (empty($this->errors)) {
+			return false;
+		}
+		
+		$vars = get_object_vars($this->errors);
+		
+		return ! empty($vars);	
+	}
+	
+	/**
 	 * Returns the index for a given column name.
 	 * 
 	 * The 'Date' column is always 0. Data columns begin at 1.
@@ -115,6 +191,11 @@ class Response implements \Serializable {
 	 * @return int
 	 */
 	public function getColumnIndex($name) {
+		
+		if (! isset($this->column_names)) {
+			return null;
+		}
+		
 		return array_search($name, $this->column_names, true);
 	}
 	
@@ -130,185 +211,42 @@ class Response implements \Serializable {
 	}
 	
 	/**
-	 * Returns the number of observations.
-	 * 
-	 * @return int
-	 */
-	public function getObservationCount() {
-		return count($this->data);
-	}
-	
-	/**
-	 * Returns the first observation from the dataset.
-	 * 
-	 * Does NOT account for sort order - i.e. in ASC order,
-	 * returns the oldest observation; in DESC order, returns the
-	 * newest observation.
-	 * 
-	 * @return mixed
-	 */
-	public function getFirstObservation() {
-		$data = $this->data;
-		return array_pop($data);
-	}
-	
-	/**
-	 * Returns the last observation from the dataset.
-	 * 
-	 * Does NOT account for sort order - i.e. in ASC order,
-	 * returns the newest observation; in DESC order, returns the
-	 * oldest observation.
-	 * 
-	 * @return mixed
-	 */
-	public function getLastObservation() {
-		$data = $this->data;
-		return array_shift($data);
-	}
-	
-	/**
-	 * Returns the entire dataset.
-	 * 
-	 * @return array
-	 */
-	public function getData() {
-		return $this->data;
-	}
-	
-	public function mergeData(array $newdata) {
-		$this->data = array_merge_recursive($this->data, $newdata);
-		return $this;
-	}
-	
-	/**
-	 * Checks whether any errors were returned.
-	 * 
-	 * @return boolean
-	 */
-	public function isError() {
-		if (! empty($this->errors) && $vars = get_object_vars($this->errors)) {
-			return ! empty($vars);	
-		}
-		return false;
-	}
-	
-	/**
-	 * Returns the observation for a given date, if it exists.
-	 * 
-	 * @param string $date Date in any PHP-recognized format (uses strtotime()).
-	 * @return array|null|boolean
-	 */
-	public function getDataFrom($date) {
-		
-		if (! $time = strtotime($date)) {
-			return false;
-		}
-		if ($time < strtotime($this->from_date)) {
-			return false;
-		}
-		if ($time > strtotime($this->to_date)) {
-			return false;
-		}
-		
-		foreach($this->data as $observation) {
-			if ($time == strtotime($observation['Date'])) {
-				return $observation;
-			}
-		}
-		
-		return null;
-	}
-	
-	/**
-	 * Returns the observations between two dates.
-	 * 
-	 * If no ending date is given, returns the observations
-	 * up to and including the most recent.
-	 * 
-	 * @param string $start_date A PHP-recognized date.
-	 * @param string $end_date [Optional]
-	 * @return array
-	 */
-	public function getDataBetween($start_date, $end_date = null) {
-		
-		if (! $start = strtotime($start_date)) {
-			return false;
-		}
-		
-		if (! isset($end_date)) {
-			$end = time();	
-		} else if (! $end = strtotime($end_date)) {
-			return false;
-		}
-		
-		$data = array();
-		
-		foreach($this->data as $key => $observation) {
-			
-			$obs = strtotime($observation['Date']);
-			
-			if ($start <= $obs && $end >= $obs) {
-				$data[$key] = $observation;
-			}
-		}
-		
-		return $data;
-	}
-	
-	/**
-	 * Constructs the object using response data.
-	 * 
-	 * @param mixed $response
-	 */
-	public function __construct($response) {
-		$this->import($response);
-	}
-	
-	/**
 	 * Imports data into the object as properties.
 	 * 
 	 * Additionally attempts to add column names to each 
 	 * observation as item keys.
 	 * 
 	 * @param mixed $data
+	 * @return $this
 	 */
 	public function import($data) {
 		
-		foreach((array)$data as $key => $value) {
+		if (! is_array($data)) {
+			$data = method_exists($data, 'toArray') ? $data->toArray() : (array)$data;
+		}
+		
+		foreach($data as $key => $value) {
 			if (property_exists($this, $key)) {
 				$this->$key = $value;
 			}
 		}
 		
 		if (! empty($this->column_names) && ! empty($this->data)) {
+			// Combine column names and data
 			foreach($this->data as &$array) {
 				$array = array_combine($this->column_names, $array);
 			}
 		}
+		
+		return $this;
 	}
 	
-	public function export() {
+	public function toArray() {
 		return get_object_vars($this);
 	}
 	
-	/**
-	 * "Upgrades" the object to a new class.
-	 * 
-	 * @param string $class Classname of object to upgrade to.
-	 * @return Object New instance of given class, if it exists.
-	 * @throws InvalidArgumentException if class does not exist.
-	 */
-	public function upgradeObject($class) {
-		
-		if (! class_exists($class, true)) {
-			throw new InvalidArgumentException("Unknown class '$class'.");
-		}
-		
-		return new $class($this->export());
-	}
-	
 	public function serialize() {
-		return serialize($this->export());
+		return serialize($this->toArray());
 	}
 	
 	public function unserialize($serial) {

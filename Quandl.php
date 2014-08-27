@@ -5,14 +5,23 @@ namespace Quandl;
 class Quandl {
 	
 	/**
-	 * User's API key.
+	 * User's Quandl auth token/API key.
+	 * 
 	 * @var string
 	 */
 	protected static $authtoken;
 	
 	/**
-	 * Cache object
-	 * @var Quandl_Cache
+	 * Request adapter object.
+	 * 
+	 * @var \Quandl\Adapter\AdapterInterface
+	 */
+	protected static $adapter;
+	
+	/**
+	 * Cache object.
+	 * 
+	 * @var \Quandl\Cache\CacheInterface
 	 */
 	protected static $cache;
 	
@@ -35,30 +44,79 @@ class Quandl {
 	}
 	
 	/**
-	 * Sets the directory to use for caching Quandl responses.
+	 * Checks whether an auth token is set.
 	 * 
-	 * @param string $dir
+	 * @return boolean
 	 */
-	public static function setCacheDirectory($dir) {
-			
-		if (! $realpath = realpath($dir)) {
-			throw new InvalidArgumentException("Directory does not exist: $dir");
-		}
-		
-		static::$cache = new Cache($realpath);
+	public static function hasAuthToken() {
+		return isset(static::$authtoken);
 	}
 	
 	/**
-	 * Returns a new Quandl\Url for the given code and manipulations.
+	 * Sets the request adapter to use for all requests.
 	 * 
-	 * @param string $quandl_code
+	 * @param \Quandl\Adapter\AdapterInterface $adapter
+	 */
+	public static function setAdapter(Adapter\AdapterInterface $adapter) {
+		static::$adapter = $adapter;
+	}
+	
+	/**
+	 * Returns the request adapter, if set.
+	 * 
+	 * @return \Quandl\Adapter\AdapterInterface
+	 */
+	public static function getAdapter() {
+		return isset(static::$adapter) ? static::$adapter : null;
+	}
+	
+	/**
+	 * Checks whether a request adapter is set.
+	 * 
+	 * @return boolean
+	 */
+	public static function hasAdapter() {
+		return isset(static::$adapter);
+	}
+	
+	/**
+	 * Sets the cache object instance.
+	 * 
+	 * @param \Quandl\Cache\CacheInterface $cache
+	 */
+	public static function setCache(Cache\CacheInterface $cache) {
+		static::$cache = $cache;
+	}
+	
+	/**
+	 * Returns the cache object, if set.
+	 * 
+	 * @return \Quandl\Cache\CacheInterface
+	 */
+	public static function getCache() {
+		return isset(static::$cache) ? static::$cache : null;
+	}
+	
+	/**
+	 * Checks whether a cache is set.
+	 * 
+	 * @return boolean
+	 */
+	public static function hasCache() {
+		return isset(static::$cache);
+	}
+	
+	/**
+	 * Returns a new \Quandl\Url for the given Quandl code and manipulations.
+	 * 
+	 * @param string $qcode
 	 * @param array $manipulations [Optional]
 	 * @param string $format [Optional]
-	 * @return Quandl_Url
+	 * @return \Quandl\Url
 	 */
-	public static function url($quandl_code, array $manipulations = null, $format = null) {
+	public static function url($qcode, array $manipulations = null, $format = null) {
 		
-		$url = new Url($quandl_code);
+		$url = new Url($qcode);
 		
 		if (isset($manipulations)) {
 			$url->addManipulations($manipulations);
@@ -72,16 +130,16 @@ class Quandl {
 	}
 	
 	/**
-	 * Returns a new Quandl\Request for the given code and manipulations.
+	 * Returns a new \Quandl\Request for the given Quandl code and manipulations.
 	 * 
-	 * @param string $quandl_code
+	 * @param string $qcode
 	 * @param array $manipulations [Optional]
 	 * @param string $format [Optional]
-	 * @return Quandl\Request
+	 * @return \Quandl\Request
 	 */
-	public static function request($quandl_code, array $manipulations = null, $format = null) {
+	public static function request($qcode, array $manipulations = null, $format = null) {
 		
-		$request = new Request($quandl_code);
+		$request = new Request($qcode);
 		
 		if (isset($manipulations)) {
 			$request->addManipulations($manipulations);
@@ -95,38 +153,54 @@ class Quandl {
 	}
 	
 	/**
-	 * Returns a cached response for the given Quandl code, if it exists, otherwise false.
+	 * Returns the best Quandl cache class available on the system.
 	 * 
-	 * @param string $quandl_code
-	 * @param array $manipulations [Optional]
-	 * @param int $ttl [Optional]
-	 * @return Quandl\Response|boolean
+	 * @return string
 	 */
-	public static function getCachedResponse($quandl_code, $manipulations = null, $ttl = null) {
-			
-		if (isset(static::$cache)) {
-			return static::$cache->get($quandl_code, $manipulations, $ttl);
+	public static function detectCacheClass() {
+		
+		$caches = array(
+			'xcache_get' => 'XCacheCache',
+			'apcu_fetch' => 'ApcuCache',
+			'apc_fetch' => 'ApcCache',
+		);
+		
+		foreach($caches as $func => $class) {
+			if (function_exists($func)) {
+				if ('apcu_fetch' === $func && ! apcu_enabled()) {
+					continue;
+				}
+				return 'Quandl\\Cache\\'.$class;
+			}
 		}
 		
-		return false;
+		return 'Quandl\\Cache\\FileCache';	
 	}
 	
 	/**
-	 * Caches a response for a given Quandl code, if cache has been set.
+	 * Returns the best Quandl request adapter class available.
 	 * 
-	 * @param string $quandl_code
-	 * @param mixed $response
-	 * @param array $manipulations [Optional]
-	 * @param int $ttl [Optional]
-	 * @return boolean
+	 * @return string Class name, or null if none are available.
 	 */
-	public static function cacheResponse($quandl_code, $response, $manipulations = null, $ttl = null) {
-			
-		if (isset(static::$cache)) {
-			return static::$cache->put($quandl_code, $response, $manipulations, $ttl);
+	public static function detectAdapterClass() {
+		
+		$adapters = array(
+			'GuzzleHttp\\Client' => 'GuzzleAdapter',
+			'Buzz\\Browser' => 'BuzzAdapter',
+			'Requests' => 'RequestsAdapter',
+		);
+		
+		foreach($adapters as $class => $qclass) {
+			if (class_exists($class, true)) {
+				return 'Quandl\\Adapter\\'.$qclass;
+			}
 		}
 		
-		return false;
+		if (ini_get('allow_url_fopen')) {
+			return 'Quandl\\Adapter\\FopenAdapter';
+		}
+		
+		return null;
 	}
 	
 	/**
@@ -136,6 +210,9 @@ class Quandl {
 		return spl_autoload_register(array(__CLASS__, 'autoload'));
 	}
 	
+	/**
+	 * Includes a class file in the Quandl\ namespace.
+	 */
 	public static function autoload($class) {
 		if (0 === strpos($class, 'Quandl\\')) {
 			include __DIR__.'/'.str_replace(array('Quandl\\', '\\'), array('', '/'), $class).'.php';
